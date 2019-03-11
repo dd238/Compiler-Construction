@@ -694,15 +694,15 @@ Type : QC {  $$ = new TQC($1); YY_RESULT_Type_= $$; }
 ListType : Type {  $$ = new ListType() ; $$->push_back($1); YY_RESULT_ListType_= $$; } 
   | Type _SYMB_6 ListType {  $3->push_back($1) ; $$ = $3 ; YY_RESULT_ListType_= $$; }
 ;
-Exp15 : Type ListId {  std::reverse($2->begin(),$2->end()) ;$$ = new EType($1, $2); YY_RESULT_Exp_= $$; } 
+Exp15 : _SYMB_50 _SYMB_0 ListExp _SYMB_1 {  std::reverse($3->begin(),$3->end()) ;$$ = new EFunCall($1, $3); YY_RESULT_Exp_= $$; } 
+  | _SYMB_50 _SYMB_4 Exp5 {  $$ = new EColon($1, $3); YY_RESULT_Exp_= $$; }
+  | _SYMB_50 _SYMB_10 ListExp _SYMB_11 {  std::reverse($3->begin(),$3->end()) ;$$ = new EInd($1, $3); YY_RESULT_Exp_= $$; }
+  | Type ListId {  std::reverse($2->begin(),$2->end()) ;$$ = new EType($1, $2); YY_RESULT_Exp_= $$; }
   | _STRING_ {  $$ = new EString($1); YY_RESULT_Exp_= $$; }
   | _INTEGER_ {  $$ = new EInt($1); YY_RESULT_Exp_= $$; }
   | _SYMB_50 {  $$ = new EId($1); YY_RESULT_Exp_= $$; }
   | _CHAR_ {  $$ = new EChar($1); YY_RESULT_Exp_= $$; }
   | QC {  $$ = new QTypeExp($1); YY_RESULT_Exp_= $$; }
-  | _SYMB_50 _SYMB_0 ListExp _SYMB_1 {  std::reverse($3->begin(),$3->end()) ;$$ = new EFunCall($1, $3); YY_RESULT_Exp_= $$; }
-  | _SYMB_50 _SYMB_4 Exp {  $$ = new EColon($1, $3); YY_RESULT_Exp_= $$; }
-  | _SYMB_50 _SYMB_10 ListExp _SYMB_11 {  std::reverse($3->begin(),$3->end()) ;$$ = new EInd($1, $3); YY_RESULT_Exp_= $$; }
   | _SYMB_0 Exp _SYMB_1 {  $$ = $2; YY_RESULT_Exp_= $$; }
 ;
 Exp14 : Exp15 _SYMB_12 {  $$ = new EPIncr($1); YY_RESULT_Exp_= $$; } 
