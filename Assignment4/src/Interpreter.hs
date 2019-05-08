@@ -161,11 +161,13 @@ evalStm (SExp e) = do
 evalStm (SDecls _ ids) = do
     mapM (\i -> extendContext i VUndefined) ids
     return Nothing
-{-
+    
 evalStm (SInit _ i e) = do
-    mapM (\i -> extendContext i VUndefined) ids
+    extendContext i VUndefined
+    v <- evalExp e 
+    updateContext i v
     return Nothing
--}
+
 evalStm SReturnVoid = 
     return $ Just VVoid
 
@@ -174,20 +176,24 @@ evalStm (SReturn e) = do
     return $ Just v
 
 evalStm (SBlock stms) = pushPop $ evalStms stms
+
 evalStm (SWhile e stm) = do
     v <- evalExp e
     if v == VFalse then
         return Nothing
     else do
-        evalStm stm
-        evalStm (SWhile e stm) 
+        val <- pushPop (evalStm stm)
+        if (val == Nothing) then
+            evalStm (SWhile e stm)
+        else do 
+            return val
 
 evalStm (SIfElse e stm1 stm2) = do 
     v <- evalExp e
     if v == VTrue then
-        evalStm stm1
+        pushPop $ evalStm stm1
     else do 
-        evalStm stm2
+        pushPop $ evalStm stm2
 
 evalStm stm = 
     fail $ "Missing case in evalStm " ++ printTree stm ++ "\n"
@@ -241,10 +247,26 @@ evalExp (EPIncr e) = fail $ "Expected " ++ printTree e ++ " to be an id."
 
 evalExp (EPDecr e@(EId i)) = do
     val <- evalExp e
-    val' <- addValue val (VInt 0)
+    val' <- subValue val (VInt 1)
     updateContext i val'
     return val
+
 evalExp (EPDecr e) = fail $ "Expected " ++ printTree e ++ " to be an id."
+
+evalExp (EIncr e@(EId i)) = do
+    val <- lookupContext i
+    val' <- addValue val (VInt 1)
+    updateContext i val'
+    return val'
+evalExp (EIncr e) = fail $ "Expected " ++ printTree e ++ " to be an id."
+
+evalExp (EDecr e@(EId i)) = do
+    val <- lookupContext i
+    val' <- subValue val (VInt 1)
+    updateContext i val'
+    return val'
+evalExp (EDecr e) = fail $ "Expected " ++ printTree e ++ " to be an id."
+
 evalExp (ETimes e1 e2) = applyFun mulValue e1 e2
 evalExp (EDiv e1 e2)   = applyFun divValue e1 e2
 evalExp (EPlus e1 e2)  = applyFun addValue e1 e2 {- These all work, just doesn't show up as passing a test yet-} 
@@ -256,34 +278,45 @@ evalExp (EGtEq e1 e2)  = applyFun gteqValue e1 e2
 evalExp (EEq e1 e2)  = applyFun eeqValue e1 e2
 evalExp (ENEq e1 e2) = applyFun eneqValue e1 e2
 
+
+evalExp (EAnd e1 e2) = do
+    v <- evalExp e1
+    if v == VTrue then do
+        v2 <- evalExp e2
+        if v2 == VTrue then do
+            return VTrue
+        else do
+            return VFalse
+    else do 
+        return VFalse
+
+evalExp (EOr e1 e2) = do
+    v <- evalExp e1
+    if v == VTrue then do
+        return VTrue
+    else do 
+        v2 <- evalExp e2
+        if v2 == VTrue then do
+            return VTrue
+        else do 
+            return VFalse
+
+evalExp (EAss (EId i) e) = do
+    v <- evalExp e 
+    updateContext i v
+    return v
+
+evalExp (ETyped e _) = evalExp e
 {-
-evalExp (EAnd e1 e2) = lazyApplyFun eandValue e1 e2
-
-evalExp (EOr e1 e2) = applyFun eorValue e1 e2
-
-evalExp (EAss (EId i) e) = 
 evalExp (EAss _ _) = 
-evalExp (ETyped e _) = 
 -}
 evalExp e = fail $ "Missing case in evalExp." ++ printTree e ++ "\n"
-
 
 applyFun :: Interpreter i => (Value -> Value -> i Value) -> Exp -> Exp -> i Value
 applyFun f e1 e2 = do
     v1 <- evalExp e1
     v2 <- evalExp e2
     f v1 v2
-{-
-lazyApplyFun :: Interpreter i => (Value -> Value -> i Value) -> Exp -> Exp -> i Value
-lazyApplyFun f e1 e2 = do
-    v1 <-  e1
-    if v1 == VTrue then do
-        v2 <- evalExp e2
-        f v1 v2
-    else 
-        return VFalse
--}
-
 
 addValue :: Interpreter i => Value -> Value -> i Value
 addValue (VInt    u) (VInt    v) = return $ VInt $ u + v
@@ -374,21 +407,6 @@ eneqValue (VDouble u) (VInt    v) = eneqValue (VDouble u) (VDouble $ fromInteger
 eneqValue (VInt    u) (VDouble v) = eneqValue (VDouble $ fromInteger u) (VDouble v)
 eneqValue _ _ = fail $ "Internal error, trying to apply eneqValue to incompatible types."
 
-{-
-eandValue :: Interpreter i => Value -> Value -> i Value
-eandValue (u) (v) | u && v     = return $ VTrue
-                                | otherwise = return $ VFalse
-eandValue _ _ = fail $ "Internal error, trying to apply eneqValue to incompatible types."
-
-eorValue :: Interpreter i => Value -> Value -> i Value
-eorValue (VInt    u) (VInt    v) | u || v     = return $ VTrue
-                                | otherwise = return $ VFalse
-eorValue (VDouble u) (VDouble v) | u || v     = return $ VTrue
-                                | otherwise = return $ VFalse
-eorValue (VDouble u) (VInt    v) = eorValue (VDouble u) (VDouble $ fromInteger v)
-eorValue (VInt    u) (VDouble v) = eorValue (VDouble $ fromInteger u) (VDouble v)
-eorValue _ _ = fail $ "Internal error, trying to apply eneqValue to incompatible types."
--}
 negValue :: Interpreter i => Value -> i Value
 negValue VFalse = return $ VTrue
 negValue VTrue  = return $ VFalse
