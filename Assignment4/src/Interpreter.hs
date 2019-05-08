@@ -195,9 +195,6 @@ evalStm (SIfElse e stm1 stm2) = do
     else do 
         pushPop $ evalStm stm2
 
-evalStm stm = 
-    fail $ "Missing case in evalStm " ++ printTree stm ++ "\n"
-
 evalExp :: Interpreter i => Exp -> i Value
 evalExp ETrue = return VTrue
 
